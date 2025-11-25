@@ -1,0 +1,68 @@
+<div class="p-6 max-w-4xl mx-auto">
+  <h2 class="text-2xl font-bold mb-6">{{ isEditMode ? 'Edit' : 'Create' }} Product</h2>
+  <form [formGroup]="productForm" (ngSubmit)="onSubmit()">
+    <div formGroupName="master" class="mb-6">
+      <h3 class="text-xl font-semibold mb-4">Product Master</h3>
+      <mat-form-field class="w-full mb-4">
+        <mat-label>Model Name</mat-label>
+        <input matInput formControlName="ModelName">
+      </mat-form-field>
+      <mat-form-field class="w-full mb-4">
+        <mat-label>Description</mat-label>
+        <textarea matInput formControlName="Description" rows="3"></textarea>
+      </mat-form-field>
+      <mat-form-field class="w-full mb-4">
+        <mat-label>Country of Origin</mat-label>
+        <input matInput formControlName="CountryOfOrigin">
+      </mat-form-field>
+      <mat-form-field class="w-full mb-4">
+        <mat-label>Supplier</mat-label>
+        <mat-select formControlName="SupplierId">
+          @for (supplier of suppliers; track supplier.Id) {
+            <mat-option [value]="supplier.Id">{{ supplier.Name }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field class="w-full mb-4">
+        <mat-label>Product Price</mat-label>
+        <input matInput type="number" formControlName="ProductPrice">
+      </mat-form-field>
+    </div>
+
+    <div formArrayName="specifications" class="mb-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-semibold">Specifications</h3>
+        <button mat-raised-button type="button" (click)="addSpecification()">Add Specification</button>
+      </div>
+      @for (spec of specifications.controls; track $index) {
+        <div [formGroupName]="$index" class="border p-4 mb-4 rounded">
+          <div class="flex justify-between items-center mb-2">
+            <h4 class="font-medium">Specification {{ $index + 1 }}</h4>
+            <button mat-button type="button" (click)="removeSpecification($index)" class="text-red-500">Remove</button>
+          </div>
+          <mat-form-field class="w-full mb-4">
+            <mat-label>Specification Name</mat-label>
+            <input matInput formControlName="SpecificationName">
+          </mat-form-field>
+          <mat-form-field class="w-full mb-4">
+            <mat-label>Size</mat-label>
+            <input matInput formControlName="Size">
+          </mat-form-field>
+          <mat-form-field class="w-full mb-4">
+            <mat-label>Other Terms</mat-label>
+            <input matInput formControlName="OtherTerms">
+          </mat-form-field>
+          <mat-form-field class="w-full mb-4">
+            <mat-label>Specification Price</mat-label>
+            <input matInput type="number" formControlName="ProductSpecificationPrice">
+          </mat-form-field>
+        </div>
+      }
+    </div>
+
+    <div class="flex gap-4">
+      <button mat-raised-button color="primary" type="submit" [disabled]="!productForm.valid">Save</button>
+      <button mat-button type="button" (click)="cancel()">Cancel</button>
+    </div>
+  </form>
+</div>

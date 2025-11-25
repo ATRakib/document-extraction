@@ -1,0 +1,38 @@
+<div class="p-6">
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-2xl font-bold">Products</h2>
+    <button mat-raised-button color="primary" (click)="create()">Create Product</button>
+  </div>
+  <table mat-table [dataSource]="products" class="w-full">
+    <ng-container matColumnDef="Id">
+      <th mat-header-cell *matHeaderCellDef>ID</th>
+      <td mat-cell *matCellDef="let product">{{ product.Id }}</td>
+    </ng-container>
+    <ng-container matColumnDef="ModelName">
+      <th mat-header-cell *matHeaderCellDef>Model Name</th>
+      <td mat-cell *matCellDef="let product">{{ product.ModelName }}</td>
+    </ng-container>
+    <ng-container matColumnDef="Description">
+      <th mat-header-cell *matHeaderCellDef>Description</th>
+      <td mat-cell *matCellDef="let product">{{ product.Description }}</td>
+    </ng-container>
+    <ng-container matColumnDef="CountryOfOrigin">
+      <th mat-header-cell *matHeaderCellDef>Country</th>
+      <td mat-cell *matCellDef="let product">{{ product.CountryOfOrigin }}</td>
+    </ng-container>
+    <ng-container matColumnDef="ProductPrice">
+      <th mat-header-cell *matHeaderCellDef>Price</th>
+      <td mat-cell *matCellDef="let product">{{ product.ProductPrice }}</td>
+    </ng-container>
+    <ng-container matColumnDef="actions">
+      <th mat-header-cell *matHeaderCellDef>Actions</th>
+      <td mat-cell *matCellDef="let product">
+        <button mat-button (click)="view(product.Id)" class="text-green-500">View</button>
+        <button mat-button (click)="edit(product.Id)" class="text-blue-500">Edit</button>
+        <button mat-button (click)="delete(product.Id)" class="text-red-500">Delete</button>
+      </td>
+    </ng-container>
+    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+  </table>
+</div>

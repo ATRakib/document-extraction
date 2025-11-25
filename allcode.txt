@@ -1,0 +1,1258 @@
+import pyodbc
+from app.config.settings import get_settings
+
+settings = get_settings()
+
+def get_db_connection():
+    conn = pyodbc.connect(settings.DB_CONNECTION_STRING)
+    return conn
+
+def get_db():
+    conn = get_db_connection()
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+from pydantic_settings import BaseSettings
+from functools import lru_cache
+
+class Settings(BaseSettings):
+    DB_CONNECTION_STRING: str
+    GROQ_API_KEY: str
+    JWT_SECRET_KEY: str
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    UPLOAD_DIR: str = "uploads"
+
+    class Config:
+        env_file = ".env"
+
+@lru_cache()
+def get_settings():
+    return Settings()
+from fastapi import APIRouter, Depends, HTTPException, status
+from app.schemas.auth import LoginRequest, TokenResponse
+from app.schemas.user import UserCreate, UserResponse
+from app.services.user_service import UserService
+from app.services.auth_service import AuthService
+from app.config.database import get_db
+import pyodbc
+from datetime import timedelta
+
+router = APIRouter(prefix="/api/auth", tags=["Authentication"])
+
+@router.post("/register", response_model=dict, status_code=status.HTTP_201_CREATED)
+def register(user_data: UserCreate, conn: pyodbc.Connection = Depends(get_db)):
+    user_service = UserService(conn)
+    
+    existing_user = user_service.get_user_by_username(user_data.Username)
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already exists")
+    
+    user_id = user_service.create_user(user_data.Username, user_data.Email, user_data.Password)
+    
+    return {"message": "User created successfully", "user_id": user_id}
+
+@router.post("/login", response_model=TokenResponse)
+def login(login_data: LoginRequest, conn: pyodbc.Connection = Depends(get_db)):
+    user_service = UserService(conn)
+    
+    user = user_service.authenticate_user(login_data.Username, login_data.Password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password"
+        )
+    
+    access_token_expires = timedelta(minutes=30)
+    access_token = AuthService.create_access_token(
+        data={"sub": user.Username, "user_id": user.Id},
+        expires_delta=access_token_expires
+    )
+    
+    return {"access_token": access_token, "token_type": "bearer"}
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List
+from app.schemas.product import SupplierCreate, SupplierResponse, ProductInsertRequest
+from app.services.product_service import ProductService
+from app.config.database import get_db
+from app.utils.security import check_permission
+import pyodbc
+
+router = APIRouter(prefix="/api/products", tags=["Products"])
+
+# ==================== SUPPLIER CRUD ====================
+
+@router.post("/suppliers", response_model=dict, status_code=status.HTTP_201_CREATED)
+def create_supplier(
+    supplier_data: SupplierCreate,
+    conn: pyodbc.Connection = Depends(get_db),
+    current_user = Depends(check_permission("Create"))
+):
+    product_service = ProductService(conn)
+    supplier_id = product_service.create_supplier(supplier_data.dict())
+    return {"message": "Supplier created successfully", "supplier_id": supplier_id}
+
+@router.get("/suppliers", response_model=List[SupplierResponse])
+def get_all_suppliers(
+    conn: pyodbc.Connection = Depends(get_db),
+    current_user = Depends(check_permission("Read"))
+):
+    product_service = ProductService(conn)
+    suppliers = product_service.get_all_suppliers()
+    return [SupplierResponse(**s.dict()) for s in suppliers]
+
+@router.get("/suppliers/{supplier_id}", response_model=SupplierResponse)
+def get_supplier_by_id(
+    supplier_id: int,
+    conn: pyodbc.Connection = Depends(get_db),
+    current_user = Depends(check_permission("Read"))
+):
+    product_service = ProductService(conn)
+    supplier = product_service.get_supplier_by_id(supplier_id)
+    
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    
+    return SupplierResponse(**supplier.dict())
+
+@router.put("/suppliers/{supplier_id}", response_model=dict)
+def update_supplier(
+    supplier_id: int,
+    supplier_data: SupplierCreate,
+    conn: pyodbc.Connection = Depends(get_db),
+    current_user = Depends(check_permission("Update"))
+):
+    product_service = ProductService(conn)
+    
+    existing_supplier = product_service.get_supplier_by_id(supplier_id)
+    if not existing_supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    
+    product_service.update_supplier(supplier_id, supplier_data.dict())
+    return {"message": "Supplier updated successfully", "supplier_id": supplier_id}
+
+@router.delete("/suppliers/{supplier_id}", response_model=dict)
+def delete_supplier(
+    supplier_id: int,
+    conn: pyodbc.Connection = Depends(get_db),
+    current_user = Depends(check_permission("Delete"))
+):
+    product_service = ProductService(conn)
+    
+    existing_supplier = product_service.get_supplier_by_id(supplier_id)
+    if not existing_supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    
+    product_service.delete_supplier(supplier_id)
+    return {"message": "Supplier deleted successfully", "supplier_id": supplier_id}
+
+# ==================== PRODUCT CRUD ====================
+
+@router.post("/insert", response_model=dict, status_code=status.HTTP_201_CREATED)
+def insert_product(
+    request: ProductInsertRequest,
+    conn: pyodbc.Connection = Depends(get_db),
+    current_user = Depends(check_permission("Create"))
+):
+    product_service = ProductService(conn)
+    result = product_service.insert_product_with_specifications(
+        request.master,
+        request.specifications
+    )
+    return {"message": "Product inserted successfully", "data": result}
+
+@router.get("/", response_model=List[dict])
+def get_all_products(
+    conn: pyodbc.Connection = Depends(get_db),
+    current_user = Depends(check_permission("Read"))
+):
+    product_service = ProductService(conn)
+    products = product_service.get_all_products()
+    return [p.dict() for p in products]
+
+@router.get("/{product_id}", response_model=dict)
+def get_product_by_id(
+    product_id: int,
+    conn: pyodbc.Connection = Depends(get_db),
+    current_user = Depends(check_permission("Read"))
+):
+    product_service = ProductService(conn)
+    product = product_service.get_product_by_id(product_id)
+    
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    specifications = product_service.get_specifications_by_product_id(product_id)
+    
+    return {
+        "product": product.dict(),
+        "specifications": [s.dict() for s in specifications]
+    }
+
+@router.put("/{product_id}", response_model=dict)
+def update_product(
+    product_id: int,
+    request: ProductInsertRequest,
+    conn: pyodbc.Connection = Depends(get_db),
+    current_user = Depends(check_permission("Update"))
+):
+    product_service = ProductService(conn)
+    
+    existing_product = product_service.get_product_by_id(product_id)
+    if not existing_product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    result = product_service.update_product_with_specifications(
+        product_id,
+        request.master,
+        request.specifications
+    )
+    return {"message": "Product updated successfully", "data": result}
+
+@router.delete("/{product_id}", response_model=dict)
+def delete_product(
+    product_id: int,
+    conn: pyodbc.Connection = Depends(get_db),
+    current_user = Depends(check_permission("Delete"))
+):
+    product_service = ProductService(conn)
+    
+    existing_product = product_service.get_product_by_id(product_id)
+    if not existing_product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    product_service.delete_product(product_id)
+    return {"message": "Product deleted successfully", "product_id": product_id}
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from app.services.extraction_service import ExtractionService
+from app.services.product_service import ProductService
+from app.config.database import get_db
+from app.utils.security import check_permission
+import pyodbc
+
+router = APIRouter(prefix="/api/upload", tags=["Document Upload & Extraction"])
+
+@router.post("/document")
+async def upload_document(
+    file: UploadFile = File(...),
+    keywords: str = Form(""),
+    conn: pyodbc.Connection = Depends(get_db),
+    #current_user = Depends(check_permission("Create"))
+):
+    extraction_service = ExtractionService()
+    
+    try:
+        result = await extraction_service.process_document(file, keywords)
+        return {
+            "message": "Document processed successfully",
+            "extracted_text": result["extracted_text"][:500] + "...",
+            "product_data": result["product_data"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Extraction failed: {str(e)}")
+
+@router.post("/extract/products")
+async def extract_and_insert_products(
+    file: UploadFile = File(...),
+    keywords: str = Form(""),
+    conn: pyodbc.Connection = Depends(get_db),
+   # current_user = Depends(check_permission("Create"))
+):
+    extraction_service = ExtractionService()
+    product_service = ProductService(conn)
+    
+    try:
+        # Extract data
+        result = await extraction_service.process_document(file, keywords)
+        product_data = result["product_data"]
+        
+        # Insert into database
+        insert_result = product_service.insert_product_with_specifications(
+            product_data["master"],
+            product_data["specifications"]
+        )
+        
+        return {
+            "message": "Product extracted and inserted successfully",
+            "product_id": insert_result["product_id"],
+            "specification_count": len(insert_result["specification_ids"])
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Process failed: {str(e)}")
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List
+from app.schemas.user import (
+    UserResponse, RoleCreate, RoleResponse, 
+    PermissionCreate, PermissionResponse,
+    AssignRoleRequest, AssignPermissionRequest
+)
+from app.services.user_service import UserService
+from app.config.database import get_db
+from app.utils.security import check_permission
+import pyodbc
+
+router = APIRouter(prefix="/api/users", tags=["User Management"])
+
+@router.get("/", response_model=List[UserResponse])
+def get_all_users(
+    conn: pyodbc.Connection = Depends(get_db),
+    current_user = Depends(check_permission("Read"))
+):
+    user_service = UserService(conn)
+    users = user_service.get_all_users()
+    return [UserResponse(Id=u.Id, Username=u.Username, Email=u.Email, IsActive=u.IsActive) for u in users]
+
+@router.post("/roles", response_model=dict, status_code=status.HTTP_201_CREATED)
+def create_role(
+    role_data: RoleCreate,
+    conn: pyodbc.Connection = Depends(get_db),
+    current_user = Depends(check_permission("Create"))
+):
+    user_service = UserService(conn)
+    role_id = user_service.create_role(role_data.RoleName, role_data.Description)
+    return {"message": "Role created successfully", "role_id": role_id}
+
+@router.get("/roles", response_model=List[RoleResponse])
+def get_all_roles(
+    conn: pyodbc.Connection = Depends(get_db),
+    current_user = Depends(check_permission("Read"))
+):
+    user_service = UserService(conn)
+    roles = user_service.get_all_roles()
+    return [RoleResponse(Id=r.Id, RoleName=r.RoleName, Description=r.Description) for r in roles]
+
+@router.post("/permissions", response_model=dict, status_code=status.HTTP_201_CREATED)
+def create_permission(
+    permission_data: PermissionCreate,
+    conn: pyodbc.Connection = Depends(get_db),
+    current_user = Depends(check_permission("Create"))
+):
+    user_service = UserService(conn)
+    permission_id = user_service.create_permission(permission_data.PermissionName, permission_data.Description)
+    return {"message": "Permission created successfully", "permission_id": permission_id}
+
+@router.get("/permissions", response_model=List[PermissionResponse])
+def get_all_permissions(
+    conn: pyodbc.Connection = Depends(get_db),
+    current_user = Depends(check_permission("Read"))
+):
+    user_service = UserService(conn)
+    permissions = user_service.get_all_permissions()
+    return [PermissionResponse(Id=p.Id, PermissionName=p.PermissionName, Description=p.Description) for p in permissions]
+
+@router.post("/assign-role", response_model=dict)
+def assign_role_to_user(
+    request: AssignRoleRequest,
+    conn: pyodbc.Connection = Depends(get_db),
+    current_user = Depends(check_permission("Create"))
+):
+    user_service = UserService(conn)
+    user_service.assign_role_to_user(request.UserId, request.RoleId)
+    return {"message": "Role assigned successfully"}
+
+@router.post("/assign-permission", response_model=dict)
+def assign_permission_to_role(
+    request: AssignPermissionRequest,
+    conn: pyodbc.Connection = Depends(get_db),
+    current_user = Depends(check_permission("Create"))
+):
+    user_service = UserService(conn)
+    user_service.assign_permission_to_role(request.RoleId, request.PermissionId)
+    return {"message": "Permission assigned successfully"}
+
+from fastapi import Request, HTTPException, status
+from starlette.middleware.base import BaseHTTPMiddleware
+from app.services.auth_service import AuthService
+from app.config.database import get_db_connection
+from app.services.user_service import UserService
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # Skip auth for public endpoints
+        public_paths = ["/api/auth/register", "/api/auth/login", "/docs", "/openapi.json", "/redoc"]
+        
+        if request.url.path in public_paths or request.url.path == "/":
+            return await call_next(request)
+        
+        # Get token from header
+        auth_header = request.headers.get("Authorization")
+        
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing or invalid authorization header"
+            )
+        
+        token = auth_header.split(" ")[1]
+        payload = AuthService.decode_access_token(token)
+        
+        if payload is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token"
+            )
+        
+        # Add user info to request state
+        request.state.user_id = payload.get("user_id")
+        request.state.username = payload.get("sub")
+        
+        response = await call_next(request)
+        return response
+
+from pydantic import BaseModel
+from typing import Optional
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    username: Optional[str] = None
+
+
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime
+from decimal import Decimal
+
+class Supplier(BaseModel):
+    Id: Optional[int] = None
+    Name: str
+    Address1: Optional[str] = None
+    Address2: Optional[str] = None
+    Country: Optional[str] = None
+    Phone: Optional[str] = None
+    Email: Optional[str] = None
+    Fax: Optional[str] = None
+    CreatedAt: Optional[datetime] = None
+
+class ProductMaster(BaseModel):
+    Id: Optional[int] = None
+    ModelName: str
+    Description: Optional[str] = None
+    CountryOfOrigin: Optional[str] = None
+    SupplierId: Optional[int] = None
+    ProductPrice: Optional[Decimal] = None
+    CreatedAt: Optional[datetime] = None
+
+class ProductSpecification(BaseModel):
+    Id: Optional[int] = None
+    ProductId: int
+    SpecificationName: Optional[str] = None
+    Size: Optional[str] = None
+    OtherTerms: Optional[str] = None
+    ProductSpecificationPrice: Optional[Decimal] = None
+    CreatedAt: Optional[datetime] = None
+
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime
+
+class User(BaseModel):
+    Id: Optional[int] = None
+    Username: str
+    Email: str
+    HashedPassword: str
+    IsActive: bool = True
+    CreatedAt: Optional[datetime] = None
+
+class Role(BaseModel):
+    Id: Optional[int] = None
+    RoleName: str
+    Description: Optional[str] = None
+    CreatedAt: Optional[datetime] = None
+
+class Permission(BaseModel):
+    Id: Optional[int] = None
+    PermissionName: str
+    Description: Optional[str] = None
+    CreatedAt: Optional[datetime] = None
+
+import pyodbc
+from typing import List, Optional
+from app.models.user import Role, Permission
+
+class AuthRepository:
+    def __init__(self, conn: pyodbc.Connection):
+        self.conn = conn
+
+    def create_role(self, role: Role) -> int:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "INSERT INTO Roles (RoleName, Description) OUTPUT INSERTED.Id VALUES (?, ?)",
+            role.RoleName, role.Description
+        )
+        role_id = cursor.fetchone()[0]
+        self.conn.commit()
+        return role_id
+
+    def get_all_roles(self) -> List[Role]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT Id, RoleName, Description, CreatedAt FROM Roles")
+        rows = cursor.fetchall()
+        return [Role(Id=row[0], RoleName=row[1], Description=row[2], CreatedAt=row[3]) for row in rows]
+
+    def create_permission(self, permission: Permission) -> int:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "INSERT INTO Permissions (PermissionName, Description) OUTPUT INSERTED.Id VALUES (?, ?)",
+            permission.PermissionName, permission.Description
+        )
+        permission_id = cursor.fetchone()[0]
+        self.conn.commit()
+        return permission_id
+
+    def get_all_permissions(self) -> List[Permission]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT Id, PermissionName, Description, CreatedAt FROM Permissions")
+        rows = cursor.fetchall()
+        return [Permission(Id=row[0], PermissionName=row[1], Description=row[2], CreatedAt=row[3]) for row in rows]
+
+    def assign_role_to_user(self, user_id: int, role_id: int):
+        cursor = self.conn.cursor()
+        cursor.execute("INSERT INTO UserRoles (UserId, RoleId) VALUES (?, ?)", user_id, role_id)
+        self.conn.commit()
+
+    def assign_permission_to_role(self, role_id: int, permission_id: int):
+        cursor = self.conn.cursor()
+        cursor.execute("INSERT INTO RolePermissions (RoleId, PermissionId) VALUES (?, ?)", role_id, permission_id)
+        self.conn.commit()
+
+    def get_user_permissions(self, user_id: int) -> List[str]:
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT DISTINCT p.PermissionName
+            FROM Permissions p
+            INNER JOIN RolePermissions rp ON p.Id = rp.PermissionId
+            INNER JOIN UserRoles ur ON rp.RoleId = ur.RoleId
+            WHERE ur.UserId = ?
+        """, user_id)
+        rows = cursor.fetchall()
+        return [row[0] for row in rows]
+
+    def get_user_roles(self, user_id: int) -> List[str]:
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT r.RoleName
+            FROM Roles r
+            INNER JOIN UserRoles ur ON r.Id = ur.RoleId
+            WHERE ur.UserId = ?
+        """, user_id)
+        rows = cursor.fetchall()
+        return [row[0] for row in rows]
+
+import pyodbc
+from typing import Optional, List
+from app.models.product import ProductMaster, ProductSpecification
+
+class ProductRepository:
+    def __init__(self, conn: pyodbc.Connection):
+        self.conn = conn
+
+    def create_product_master(self, product: ProductMaster) -> int:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            """INSERT INTO ProductMaster (ModelName, Description, CountryOfOrigin, SupplierId, ProductPrice) 
+               OUTPUT INSERTED.Id VALUES (?, ?, ?, ?, ?)""",
+            product.ModelName, product.Description, product.CountryOfOrigin, 
+            product.SupplierId, product.ProductPrice
+        )
+        product_id = cursor.fetchone()[0]
+        self.conn.commit()
+        return product_id
+
+    def create_product_specification(self, spec: ProductSpecification) -> int:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            """INSERT INTO ProductSpecification (ProductId, SpecificationName, Size, OtherTerms, ProductSpecificationPrice) 
+               OUTPUT INSERTED.Id VALUES (?, ?, ?, ?, ?)""",
+            spec.ProductId, spec.SpecificationName, spec.Size, 
+            spec.OtherTerms, spec.ProductSpecificationPrice
+        )
+        spec_id = cursor.fetchone()[0]
+        self.conn.commit()
+        return spec_id
+
+    def get_product_by_id(self, product_id: int) -> Optional[ProductMaster]:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT Id, ModelName, Description, CountryOfOrigin, SupplierId, ProductPrice, CreatedAt FROM ProductMaster WHERE Id = ?",
+            product_id
+        )
+        row = cursor.fetchone()
+        if row:
+            return ProductMaster(Id=row[0], ModelName=row[1], Description=row[2], 
+                               CountryOfOrigin=row[3], SupplierId=row[4], ProductPrice=row[5], CreatedAt=row[6])
+        return None
+
+    def get_all_products(self) -> List[ProductMaster]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT Id, ModelName, Description, CountryOfOrigin, SupplierId, ProductPrice, CreatedAt FROM ProductMaster")
+        rows = cursor.fetchall()
+        return [ProductMaster(Id=row[0], ModelName=row[1], Description=row[2], 
+                            CountryOfOrigin=row[3], SupplierId=row[4], ProductPrice=row[5], CreatedAt=row[6]) for row in rows]
+
+    def get_specifications_by_product_id(self, product_id: int) -> List[ProductSpecification]:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT Id, ProductId, SpecificationName, Size, OtherTerms, ProductSpecificationPrice, CreatedAt FROM ProductSpecification WHERE ProductId = ?",
+            product_id
+        )
+        rows = cursor.fetchall()
+        return [ProductSpecification(Id=row[0], ProductId=row[1], SpecificationName=row[2], 
+                                   Size=row[3], OtherTerms=row[4], ProductSpecificationPrice=row[5], CreatedAt=row[6]) for row in rows]
+
+    def update_product_master(self, product_id: int, product: ProductMaster):
+        cursor = self.conn.cursor()
+        cursor.execute(
+            """UPDATE ProductMaster SET ModelName = ?, Description = ?, CountryOfOrigin = ?, 
+               SupplierId = ?, ProductPrice = ? WHERE Id = ?""",
+            product.ModelName, product.Description, product.CountryOfOrigin, 
+            product.SupplierId, product.ProductPrice, product_id
+        )
+        self.conn.commit()
+
+    def delete_product(self, product_id: int):
+        cursor = self.conn.cursor()
+        cursor.execute("DELETE FROM ProductMaster WHERE Id = ?", product_id)
+        self.conn.commit()
+
+    def delete_specifications_by_product_id(self, product_id: int):
+        cursor = self.conn.cursor()
+        cursor.execute("DELETE FROM ProductSpecification WHERE ProductId = ?", product_id)
+        self.conn.commit()
+
+import pyodbc
+from typing import Optional, List
+from app.models.product import Supplier
+
+class SupplierRepository:
+    def __init__(self, conn: pyodbc.Connection):
+        self.conn = conn
+
+    def create_supplier(self, supplier: Supplier) -> int:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            """INSERT INTO Supplier (Name, Address1, Address2, Country, Phone, Email, Fax) 
+               OUTPUT INSERTED.Id VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            supplier.Name, supplier.Address1, supplier.Address2, 
+            supplier.Country, supplier.Phone, supplier.Email, supplier.Fax
+        )
+        supplier_id = cursor.fetchone()[0]
+        self.conn.commit()
+        return supplier_id
+
+    def get_supplier_by_id(self, supplier_id: int) -> Optional[Supplier]:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT Id, Name, Address1, Address2, Country, Phone, Email, Fax, CreatedAt FROM Supplier WHERE Id = ?",
+            supplier_id
+        )
+        row = cursor.fetchone()
+        if row:
+            return Supplier(Id=row[0], Name=row[1], Address1=row[2], Address2=row[3], 
+                          Country=row[4], Phone=row[5], Email=row[6], Fax=row[7], CreatedAt=row[8])
+        return None
+
+    def get_all_suppliers(self) -> List[Supplier]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT Id, Name, Address1, Address2, Country, Phone, Email, Fax, CreatedAt FROM Supplier")
+        rows = cursor.fetchall()
+        return [Supplier(Id=row[0], Name=row[1], Address1=row[2], Address2=row[3], 
+                        Country=row[4], Phone=row[5], Email=row[6], Fax=row[7], CreatedAt=row[8]) for row in rows]
+
+    def update_supplier(self, supplier_id: int, supplier: Supplier):
+        cursor = self.conn.cursor()
+        cursor.execute(
+            """UPDATE Supplier SET Name = ?, Address1 = ?, Address2 = ?, Country = ?, 
+               Phone = ?, Email = ?, Fax = ? WHERE Id = ?""",
+            supplier.Name, supplier.Address1, supplier.Address2, 
+            supplier.Country, supplier.Phone, supplier.Email, supplier.Fax, supplier_id
+        )
+        self.conn.commit()
+
+    def delete_supplier(self, supplier_id: int):
+        cursor = self.conn.cursor()
+        cursor.execute("DELETE FROM Supplier WHERE Id = ?", supplier_id)
+        self.conn.commit()
+
+import pyodbc
+from typing import Optional, List
+from app.models.user import User, Role, Permission
+
+class UserRepository:
+    def __init__(self, conn: pyodbc.Connection):
+        self.conn = conn
+
+    def create_user(self, user: User) -> int:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "INSERT INTO Users (Username, Email, HashedPassword, IsActive) OUTPUT INSERTED.Id VALUES (?, ?, ?, ?)",
+            user.Username, user.Email, user.HashedPassword, user.IsActive
+        )
+        user_id = cursor.fetchone()[0]
+        self.conn.commit()
+        return user_id
+
+    def get_user_by_username(self, username: str) -> Optional[User]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT Id, Username, Email, HashedPassword, IsActive, CreatedAt FROM Users WHERE Username = ?", username)
+        row = cursor.fetchone()
+        if row:
+            return User(Id=row[0], Username=row[1], Email=row[2], HashedPassword=row[3], IsActive=row[4], CreatedAt=row[5])
+        return None
+
+    def get_user_by_id(self, user_id: int) -> Optional[User]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT Id, Username, Email, HashedPassword, IsActive, CreatedAt FROM Users WHERE Id = ?", user_id)
+        row = cursor.fetchone()
+        if row:
+            return User(Id=row[0], Username=row[1], Email=row[2], HashedPassword=row[3], IsActive=row[4], CreatedAt=row[5])
+        return None
+
+    def get_all_users(self) -> List[User]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT Id, Username, Email, HashedPassword, IsActive, CreatedAt FROM Users")
+        rows = cursor.fetchall()
+        return [User(Id=row[0], Username=row[1], Email=row[2], HashedPassword=row[3], IsActive=row[4], CreatedAt=row[5]) for row in rows]
+
+from pydantic import BaseModel
+
+class LoginRequest(BaseModel):
+    Username: str
+    Password: str
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+
+from pydantic import BaseModel
+from typing import Optional, List
+from decimal import Decimal
+
+class SupplierCreate(BaseModel):
+    Name: str
+    Address1: Optional[str] = None
+    Address2: Optional[str] = None
+    Country: Optional[str] = None
+    Phone: Optional[str] = None
+    Email: Optional[str] = None
+    Fax: Optional[str] = None
+
+class SupplierResponse(BaseModel):
+    Id: int
+    Name: str
+    Address1: Optional[str] = None
+    Address2: Optional[str] = None
+    Country: Optional[str] = None
+    Phone: Optional[str] = None
+    Email: Optional[str] = None
+    Fax: Optional[str] = None
+
+class ProductMasterCreate(BaseModel):
+    ModelName: str
+    Description: Optional[str] = None
+    CountryOfOrigin: Optional[str] = None
+    SupplierId: Optional[int] = None
+    ProductPrice: Optional[Decimal] = None
+
+class ProductSpecificationCreate(BaseModel):
+    SpecificationName: Optional[str] = None
+    Size: Optional[str] = None
+    OtherTerms: Optional[str] = None
+    ProductSpecificationPrice: Optional[Decimal] = None
+
+class ProductExtractResponse(BaseModel):
+    master: dict
+    specifications: List[dict]
+
+class ProductInsertRequest(BaseModel):
+    master: dict
+    specifications: List[dict]
+
+from pydantic import BaseModel, EmailStr
+from typing import Optional, List
+
+class UserCreate(BaseModel):
+    Username: str
+    Email: EmailStr
+    Password: str
+
+class UserResponse(BaseModel):
+    Id: int
+    Username: str
+    Email: str
+    IsActive: bool
+
+class RoleCreate(BaseModel):
+    RoleName: str
+    Description: Optional[str] = None
+
+class RoleResponse(BaseModel):
+    Id: int
+    RoleName: str
+    Description: Optional[str] = None
+
+class PermissionCreate(BaseModel):
+    PermissionName: str
+    Description: Optional[str] = None
+
+class PermissionResponse(BaseModel):
+    Id: int
+    PermissionName: str
+    Description: Optional[str] = None
+
+class AssignRoleRequest(BaseModel):
+    UserId: int
+    RoleId: int
+
+class AssignPermissionRequest(BaseModel):
+    RoleId: int
+    PermissionId: int
+
+from datetime import datetime, timedelta
+from jose import JWTError, jwt
+import bcrypt
+from app.config.settings import get_settings
+from app.models.user import User
+from typing import Optional
+
+settings = get_settings()
+
+class AuthService:
+    @staticmethod
+    def verify_password(plain_password: str, hashed_password: str) -> bool:
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+
+    @staticmethod
+    def get_password_hash(password: str) -> str:
+        salt = bcrypt.gensalt()
+        hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+        return hashed.decode('utf-8')
+
+    @staticmethod
+    def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+        to_encode = data.copy()
+        if expires_delta:
+            expire = datetime.utcnow() + expires_delta
+        else:
+            expire = datetime.utcnow() + timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
+        to_encode.update({"exp": expire})
+        encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+        return encoded_jwt
+
+    @staticmethod
+    def decode_access_token(token: str):
+        try:
+            payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+            return payload
+        except JWTError:
+            return None
+
+import os
+from fastapi import UploadFile
+from app.utils.document_parser import DocumentParser
+from app.services.llm_service import LLMService
+from app.config.settings import get_settings
+
+settings = get_settings()
+
+class ExtractionService:
+    def __init__(self):
+        self.llm_service = LLMService()
+        self.upload_dir = settings.UPLOAD_DIR
+        os.makedirs(self.upload_dir, exist_ok=True)
+
+    async def save_upload_file(self, upload_file: UploadFile) -> str:
+        file_path = os.path.join(self.upload_dir, upload_file.filename)
+        with open(file_path, "wb") as f:
+            content = await upload_file.read()
+            f.write(content)
+        return file_path
+
+    def extract_text_from_file(self, file_path: str) -> str:
+        return DocumentParser.extract_text(file_path)
+
+    def extract_product_data_from_text(self, text: str, keywords: str = "") -> dict:
+        return self.llm_service.extract_product_data(text, keywords)
+
+    async def process_document(self, file: UploadFile, keywords: str = "") -> dict:
+        # Save file
+        file_path = await self.save_upload_file(file)
+        
+        # Extract text
+        extracted_text = self.extract_text_from_file(file_path)
+        
+        # Extract structured data using LLM
+        product_data = self.extract_product_data_from_text(extracted_text, keywords)
+        
+        # Clean up file
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        
+        return {
+            "extracted_text": extracted_text,
+            "product_data": product_data
+        }
+
+from groq import Groq
+from app.config.settings import get_settings
+import json
+
+settings = get_settings()
+
+class LLMService:
+    def __init__(self):
+        self.client = Groq(api_key=settings.GROQ_API_KEY)
+
+    def extract_product_data(self, extracted_text: str, keywords: str = "") -> dict:
+        system_prompt = """You are an expert data extraction system. Extract product information from the provided text and return ONLY a valid JSON object.
+
+Extract the following structure:
+{
+  "master": {
+    "ModelName": "string",
+    "Description": "string",
+    "CountryOfOrigin": "string",
+    "SupplierId": null,
+    "ProductPrice": 0.0
+  },
+  "specifications": [
+    {
+      "SpecificationName": "string",
+      "Size": "string",
+      "OtherTerms": "string",
+      "ProductSpecificationPrice": 0.0
+      }
+  ]
+}
+
+Rules:
+- Extract all product details accurately
+- If a field is not found, use null or empty string
+- ProductPrice and ProductSpecificationPrice must be numbers (use 0.0 if not found)
+- SupplierId should always be null (will be set manually)
+- Return ONLY the JSON object, no additional text
+- Multiple specifications should be in the specifications array
+"""
+
+        user_prompt = f"""Extract product information from this text:
+
+{extracted_text}
+
+Keywords to focus on: {keywords}
+
+Return ONLY the JSON object."""
+
+        try:
+            chat_completion = self.client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                model="llama-3.3-70b-versatile",
+                temperature=0.1,
+                max_tokens=2000
+            )
+            
+            response_text = chat_completion.choices[0].message.content.strip()
+            
+            # Clean response
+            if response_text.startswith("```json"):
+                response_text = response_text[7:]
+            if response_text.startswith("```"):
+                response_text = response_text[3:]
+            if response_text.endswith("```"):
+                response_text = response_text[:-3]
+            
+            response_text = response_text.strip()
+            
+            # Parse JSON
+            extracted_data = json.loads(response_text)
+            return extracted_data
+            
+        except Exception as e:
+            raise Exception(f"LLM extraction failed: {str(e)}")
+
+import pyodbc
+from app.repositories.product_repository import ProductRepository
+from app.repositories.supplier_repository import SupplierRepository
+from app.models.product import ProductMaster, ProductSpecification, Supplier
+from typing import List, Optional, Dict
+
+class ProductService:
+    def __init__(self, conn: pyodbc.Connection):
+        self.product_repo = ProductRepository(conn)
+        self.supplier_repo = SupplierRepository(conn)
+
+    # ==================== SUPPLIER METHODS ====================
+    
+    def create_supplier(self, supplier_data: dict) -> int:
+        supplier = Supplier(**supplier_data)
+        return self.supplier_repo.create_supplier(supplier)
+
+    def get_all_suppliers(self) -> List[Supplier]:
+        return self.supplier_repo.get_all_suppliers()
+
+    def get_supplier_by_id(self, supplier_id: int) -> Optional[Supplier]:
+        return self.supplier_repo.get_supplier_by_id(supplier_id)
+
+    def update_supplier(self, supplier_id: int, supplier_data: dict):
+        supplier = Supplier(Id=supplier_id, **supplier_data)
+        self.supplier_repo.update_supplier(supplier_id, supplier)
+
+    def delete_supplier(self, supplier_id: int):
+        self.supplier_repo.delete_supplier(supplier_id)
+
+    # ==================== PRODUCT METHODS ====================
+
+    def insert_product_with_specifications(self, master_data: dict, specifications_data: List[dict]) -> Dict:
+        product = ProductMaster(**master_data)
+        product_id = self.product_repo.create_product_master(product)
+        
+        spec_ids = []
+        for spec_data in specifications_data:
+            spec_data['ProductId'] = product_id
+            spec = ProductSpecification(**spec_data)
+            spec_id = self.product_repo.create_product_specification(spec)
+            spec_ids.append(spec_id)
+        
+        return {
+            "product_id": product_id,
+            "specification_ids": spec_ids
+        }
+
+    def get_product_by_id(self, product_id: int) -> Optional[ProductMaster]:
+        return self.product_repo.get_product_by_id(product_id)
+
+    def get_all_products(self) -> List[ProductMaster]:
+        return self.product_repo.get_all_products()
+
+    def get_specifications_by_product_id(self, product_id: int) -> List[ProductSpecification]:
+        return self.product_repo.get_specifications_by_product_id(product_id)
+
+    def update_product_with_specifications(self, product_id: int, master_data: dict, specifications_data: List[dict]) -> Dict:
+        # Update product master
+        product = ProductMaster(Id=product_id, **master_data)
+        self.product_repo.update_product_master(product_id, product)
+        
+        # Delete old specifications
+        self.product_repo.delete_specifications_by_product_id(product_id)
+        
+        # Insert new specifications
+        spec_ids = []
+        for spec_data in specifications_data:
+            spec_data['ProductId'] = product_id
+            spec = ProductSpecification(**spec_data)
+            spec_id = self.product_repo.create_product_specification(spec)
+            spec_ids.append(spec_id)
+        
+        return {
+            "product_id": product_id,
+            "specification_ids": spec_ids
+        }
+
+    def delete_product(self, product_id: int):
+        self.product_repo.delete_product(product_id)
+
+import pyodbc
+from app.repositories.user_repository import UserRepository
+from app.repositories.auth_repository import AuthRepository
+from app.models.user import User, Role, Permission
+from app.services.auth_service import AuthService
+from typing import List, Optional
+
+class UserService:
+    def __init__(self, conn: pyodbc.Connection):
+        self.user_repo = UserRepository(conn)
+        self.auth_repo = AuthRepository(conn)
+
+    def create_user(self, username: str, email: str, password: str) -> int:
+        hashed_password = AuthService.get_password_hash(password)
+        user = User(Username=username, Email=email, HashedPassword=hashed_password)
+        return self.user_repo.create_user(user)
+
+    def authenticate_user(self, username: str, password: str) -> Optional[User]:
+        user = self.user_repo.get_user_by_username(username)
+        if not user:
+            return None
+        if not AuthService.verify_password(password, user.HashedPassword):
+            return None
+        return user
+
+    def get_user_by_username(self, username: str) -> Optional[User]:
+        return self.user_repo.get_user_by_username(username)
+
+    def get_user_by_id(self, user_id: int) -> Optional[User]:
+        return self.user_repo.get_user_by_id(user_id)
+
+    def get_all_users(self) -> List[User]:
+        return self.user_repo.get_all_users()
+
+    def create_role(self, role_name: str, description: str = None) -> int:
+        role = Role(RoleName=role_name, Description=description)
+        return self.auth_repo.create_role(role)
+
+    def get_all_roles(self) -> List[Role]:
+        return self.auth_repo.get_all_roles()
+
+    def create_permission(self, permission_name: str, description: str = None) -> int:
+        permission = Permission(PermissionName=permission_name, Description=description)
+        return self.auth_repo.create_permission(permission)
+
+    def get_all_permissions(self) -> List[Permission]:
+        return self.auth_repo.get_all_permissions()
+
+    def assign_role_to_user(self, user_id: int, role_id: int):
+        self.auth_repo.assign_role_to_user(user_id, role_id)
+
+    def assign_permission_to_role(self, role_id: int, permission_id: int):
+        self.auth_repo.assign_permission_to_role(role_id, permission_id)
+
+    def get_user_permissions(self, user_id: int) -> List[str]:
+        return self.auth_repo.get_user_permissions(user_id)
+
+    def get_user_roles(self, user_id: int) -> List[str]:
+        return self.auth_repo.get_user_roles(user_id)
+
+import os
+from PyPDF2 import PdfReader
+from docx import Document
+from PIL import Image
+import pytesseract
+
+class DocumentParser:
+    @staticmethod
+    def extract_text(file_path: str) -> str:
+        ext = os.path.splitext(file_path)[1].lower()
+        
+        if ext == '.pdf':
+            return DocumentParser.extract_from_pdf(file_path)
+        elif ext in ['.docx', '.doc']:
+            return DocumentParser.extract_from_docx(file_path)
+        elif ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff']:
+            return DocumentParser.extract_from_image(file_path)
+        else:
+            raise ValueError(f"Unsupported file type: {ext}")
+
+    @staticmethod
+    def extract_from_pdf(file_path: str) -> str:
+        reader = PdfReader(file_path)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() + "\n"
+        return text.strip()
+
+    @staticmethod
+    def extract_from_docx(file_path: str) -> str:
+        doc = Document(file_path)
+        text = ""
+        for para in doc.paragraphs:
+            text += para.text + "\n"
+        return text.strip()
+
+    @staticmethod
+    def extract_from_image(file_path: str) -> str:
+        image = Image.open(file_path)
+        text = pytesseract.image_to_string(image)
+        return text.strip()
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from app.services.auth_service import AuthService
+from app.config.database import get_db
+from app.services.user_service import UserService
+import pyodbc
+
+security = HTTPBearer()
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), conn: pyodbc.Connection = Depends(get_db)):
+    token = credentials.credentials
+    payload = AuthService.decode_access_token(token)
+    
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+    
+    username: str = payload.get("sub")
+    if username is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+    
+    user_service = UserService(conn)
+    user = user_service.get_user_by_username(username)
+    
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
+    
+    return user
+
+def check_permission(required_permission: str):
+    def permission_checker(credentials: HTTPAuthorizationCredentials = Depends(security), conn: pyodbc.Connection = Depends(get_db)):
+        user = get_current_user(credentials, conn)
+        
+        user_service = UserService(conn)
+        permissions = user_service.get_user_permissions(user.Id)
+        
+        if required_permission not in permissions and "Custom" not in permissions:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission denied. Required: {required_permission}"
+            )
+        
+        return user
+    
+    return permission_checker
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.controllers import auth_controller, user_controller, product_controller, upload_controller
+import os
+
+app = FastAPI(
+    title="Document Extraction & RBAC System",
+    description="FastAPI application with document extraction, LLM processing, and role-based access control",
+    version="1.0.0"
+)
+
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Create uploads directory
+os.makedirs("uploads", exist_ok=True)
+
+# Include routers
+app.include_router(auth_controller.router)
+app.include_router(user_controller.router)
+app.include_router(product_controller.router)
+app.include_router(upload_controller.router)
+
+@app.get("/")
+def root():
+    return {
+        "message": "Document Extraction & RBAC System API",
+        "version": "1.0.0",
+        "docs": "/docs"
+    }
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
