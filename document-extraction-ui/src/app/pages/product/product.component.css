@@ -1,0 +1,268 @@
+/* Container */
+.product-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1.5rem;
+}
+
+/* Card Headers */
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1e293b;
+    padding: 1.5rem;
+}
+
+.card-header i {
+    font-size: 1.5rem;
+    color: #3b82f6;
+}
+
+/* Toolbar Card */
+.toolbar-card {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+.toolbar-content {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.search-section {
+    flex: 1;
+    min-width: 300px;
+}
+
+.search-input {
+    font-size: 1rem;
+    padding: 0.75rem 1rem 0.75rem 2.5rem;
+}
+
+::ng-deep .p-input-icon-left > i {
+    left: 1rem;
+    color: #64748b;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 0.75rem;
+}
+
+/* Products Card */
+.products-section {
+    margin-top: 1.5rem;
+}
+
+.products-card {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* Loading & Empty States */
+.loading-section,
+.empty-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1rem;
+    color: #64748b;
+}
+
+.loading-section i,
+.empty-section i {
+    color: #94a3b8;
+    margin-bottom: 1rem;
+}
+
+.empty-section p {
+    margin: 0.5rem 0;
+    font-size: 1.1rem;
+}
+
+/* Product Item */
+.product-item {
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid #e2e8f0;
+}
+
+.product-item:last-child {
+    margin-bottom: 0;
+}
+
+/* Section Titles */
+.section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.title-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.title-left i {
+    font-size: 1.25rem;
+    color: #3b82f6;
+}
+
+.action-buttons-inline {
+    display: flex;
+    gap: 0.25rem;
+}
+
+/* Product Master Section */
+.product-master-section {
+    background: white;
+    padding: 1.25rem;
+    border-radius: 8px;
+    border-left: 4px solid #3b82f6;
+}
+
+/* Master Table */
+::ng-deep .master-table {
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+::ng-deep .master-table .p-datatable-thead > tr > th {
+    background: #3b82f6;
+    color: white;
+    font-weight: 600;
+    padding: 1rem;
+    font-size: 0.95rem;
+}
+
+::ng-deep .master-table .p-datatable-tbody > tr > td {
+    padding: 0.875rem 1rem;
+    font-size: 0.9rem;
+}
+
+::ng-deep .master-table .p-datatable-tbody > tr:hover {
+    background: #f1f5f9;
+}
+
+.description-cell {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Tags */
+::ng-deep .p-tag {
+    font-weight: 600;
+    padding: 0.5rem 0.75rem;
+}
+
+/* Divider */
+::ng-deep .p-divider {
+    margin: 1.5rem 0;
+}
+
+::ng-deep .p-divider::before {
+    border-color: #cbd5e1;
+}
+
+/* Animation */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.product-item {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .product-container {
+        padding: 1rem;
+    }
+
+    .toolbar-content {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .search-section {
+        width: 100%;
+        min-width: unset;
+    }
+
+    .action-buttons {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .card-header {
+        font-size: 1.1rem;
+        padding: 1rem;
+    }
+
+    .section-title {
+        font-size: 1rem;
+        flex-direction: column;
+        gap: 0.75rem;
+        align-items: flex-start;
+    }
+
+    .action-buttons-inline {
+        align-self: flex-end;
+    }
+
+    .product-item {
+        padding: 1rem;
+    }
+
+    .description-cell {
+        max-width: 150px;
+    }
+}
+
+/* Button Styles */
+::ng-deep .p-button {
+    font-weight: 500;
+}
+
+::ng-deep .p-button.p-button-success {
+    background: #10b981;
+    border-color: #10b981;
+}
+
+::ng-deep .p-button.p-button-success:hover {
+    background: #059669;
+    border-color: #059669;
+}
+
+/* Tooltip */
+::ng-deep .p-tooltip {
+    font-size: 0.875rem;
+}

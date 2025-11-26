@@ -1,0 +1,129 @@
+<p-toast />
+<p-confirmDialog />
+
+<div class="product-container">
+    <!-- Toolbar -->
+    <p-card styleClass="toolbar-card">
+        <ng-template pTemplate="header">
+            <div class="card-header">
+                <i class="pi pi-box"></i>
+                <span>Product Management</span>
+            </div>
+        </ng-template>
+
+        <div class="toolbar-content">
+            <div class="search-section">
+                <span class="p-input-icon-left w-full">
+                    <i class="pi pi-search"></i>
+                    <input 
+                        type="text" 
+                        pInputText 
+                        
+                        (input)="onSearch()"
+                        placeholder="Search products..." 
+                        class="w-full search-input" />
+                </span>
+            </div>
+            <div class="action-buttons">
+                <p-button 
+                    label="Add New Product" 
+                    icon="pi pi-plus" 
+                    severity="success"
+                    (onClick)="addNew()" />
+                <p-button 
+                    label="Refresh" 
+                    icon="pi pi-refresh" 
+                    [outlined]="true"
+                    (onClick)="loadProducts()" />
+            </div>
+        </div>
+    </p-card>
+
+    <!-- Products List -->
+    <div class="products-section">
+        <p-card styleClass="products-card">
+            <ng-template pTemplate="header">
+                <div class="card-header">
+                    <i class="pi pi-list"></i>
+                    <span>All Products ({{ filteredProducts.length }})</span>
+                </div>
+            </ng-template>
+
+            <div *ngIf="loading" class="loading-section">
+                <i class="pi pi-spin pi-spinner" style="font-size: 2rem;"></i>
+                <p>Loading products...</p>
+            </div>
+
+            <div *ngIf="!loading && filteredProducts.length === 0" class="empty-section">
+                <i class="pi pi-inbox" style="font-size: 3rem;"></i>
+                <p>No products found</p>
+                <p-button 
+                    label="Add First Product" 
+                    icon="pi pi-plus" 
+                    (onClick)="addNew()" />
+            </div>
+
+            <div *ngFor="let product of filteredProducts; let i = index" class="product-item">
+                <!-- Product Master Section -->
+                <div class="product-master-section">
+                    <div class="section-title">
+                        <div class="title-left">
+                            <i class="pi pi-shopping-cart"></i>
+                            <span>Product Master</span>
+                        </div>
+                        <div class="action-buttons-inline">
+                            <p-button 
+                                icon="pi pi-eye" 
+                                [text]="true" 
+                                [rounded]="true"
+                                severity="info"
+                                (onClick)="viewProduct(product.Id!)"
+                                pTooltip="View Details" />
+                            <p-button 
+                                icon="pi pi-pencil" 
+                                [text]="true" 
+                                [rounded]="true"
+                                
+                                (onClick)="editProduct(product.Id!)"
+                                pTooltip="Edit Product" />
+                            <p-button 
+                                icon="pi pi-trash" 
+                                [text]="true" 
+                                [rounded]="true"
+                                severity="danger"
+                                (onClick)="deleteProduct(product)"
+                                pTooltip="Delete Product" />
+                        </div>
+                    </div>
+                    
+                    <p-table [value]="[product]" styleClass="master-table">
+                        <ng-template pTemplate="header">
+                            <tr>
+                                <th>Model Name</th>
+                                <th>Price</th>
+                                <th>Country</th>
+                                <th>Supplier</th>
+                                <th>Description</th>
+                            </tr>
+                        </ng-template>
+                        <ng-template pTemplate="body" let-prod>
+                            <tr>
+                                <td>
+                                    <strong>{{ prod.ModelName || 'N/A' }}</strong>
+                                </td>
+                                <td>
+                                    <p-tag [value]="(prod.ProductPrice | currency) || '$0.00'" severity="success"></p-tag>
+                                </td>
+                                <td>{{ prod.CountryOfOrigin || 'N/A' }}</td>
+                                <td>{{ getSupplierName(prod.SupplierId) }}</td>
+                                <td class="description-cell">{{ prod.Description || 'No description' }}</td>
+                            </tr>
+                        </ng-template>
+                    </p-table>
+                </div>
+
+                <p-divider *ngIf="i < filteredProducts.length - 1"></p-divider>
+            </div>
+        </p-card>
+    </div>
+</div>

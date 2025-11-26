@@ -1,0 +1,44 @@
+
+You are an expert Angular architect (Angular 17+).
+
+I will provide:
+1. My existing Angular project code structure (already running).
+2. A separate HTML + JS UI (document upload, extraction, authentication UI).
+3. My FastAPI backend code (authentication, suppliers, products, document extraction APIs).
+
+
+Your task:
+Rebuild the entire UI and logic in Angular with the following strict requirements:
+
+UI REQUIREMENTS:
+- The design must look user friendly
+- But the layout must follow my Angular project’s structure.
+- Use grid-based responsive design.
+- Use clean Angular folder structure: components, pages, services, models, guards, interceptors.
+- No extra UI, no extra animations, no unnecessary styling.
+
+FUNCTIONALITY REQUIREMENTS:
+Use Angular services for API calls.
+- Full authentication system (login, logout).
+- Role-based UI 
+- Profile page (show user info + role).
+- Supplier management page (list, add, edit).
+- Product management page (list, add, edit).
+- Document upload + document extraction page.
+- Extracted result must be saved via service.
+- Every module must have its own menu item.
+- Dashboard must be clean and simple (grid layout).
+
+
+
+IMPORTANT:
+- Do NOT change my project structure.
+- Do NOT create unnecessary files.
+- Do NOT give explanations, only code.
+
+Now I will paste:
+1. My Angular project code structure
+2. My HTML + JS UI code
+2. My FastAPI backend code
+
+After that, generate the full Angular code following the rules above.

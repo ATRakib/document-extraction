@@ -1,0 +1,246 @@
+<p-toast />
+
+<div class="form-container">
+    <!-- Header -->
+    <p-card styleClass="header-card">
+        <ng-template pTemplate="header">
+            <div class="page-header">
+                <div class="header-left">
+                    <p-button 
+                        icon="pi pi-arrow-left" 
+                        [text]="true" 
+                        [rounded]="true"
+                        (onClick)="goBack()"
+                        pTooltip="Back to Products" />
+                    <div class="header-title">
+                        <i class="pi" [ngClass]="isView ? 'pi-eye' : isEdit ? 'pi-pencil' : 'pi-plus-circle'"></i>
+                        <span>{{ pageTitle }}</span>
+                    </div>
+                </div>
+                <div class="header-actions" *ngIf="!isView">
+                    <p-button 
+                        label="Cancel" 
+                        icon="pi pi-times" 
+                        [outlined]="true"
+                        (onClick)="goBack()" />
+                    <p-button 
+                        label="Save Product" 
+                        icon="pi pi-save" 
+                        severity="success"
+                        [loading]="loading"
+                        (onClick)="saveProduct()" />
+                </div>
+            </div>
+        </ng-template>
+    </p-card>
+
+    <div *ngIf="loading && !productData.master.ModelName" class="loading-section">
+        <i class="pi pi-spin pi-spinner" style="font-size: 2rem;"></i>
+        <p>Loading product...</p>
+    </div>
+
+    <!-- Product Form -->
+    <div *ngIf="!loading || productData.master.ModelName" class="form-content">
+        <!-- Product Master Section -->
+        <p-card styleClass="form-card">
+            <ng-template pTemplate="header">
+                <div class="section-header master-header">
+                    <i class="pi pi-shopping-cart"></i>
+                    <span>Product Master</span>
+                </div>
+            </ng-template>
+
+            <div class="grid">
+                <div class="col-12 md:col-6">
+                    <label class="input-label required">Model Name</label>
+                    <input 
+                        type="text" 
+                        pInputText 
+                        [(ngModel)]="productData.master.ModelName" 
+                        [disabled]="isView"
+                        placeholder="Enter model name"
+                        class="w-full" />
+                </div>
+                
+                <div class="col-12 md:col-6">
+                    <label class="input-label">Product Price</label>
+                    <p-inputnumber 
+                        [(ngModel)]="productData.master.ProductPrice" 
+                        mode="currency" 
+                        currency="USD"
+                        [disabled]="isView"
+                        placeholder="0.00"
+                        class="w-full" />
+                </div>
+                
+                <div class="col-12 md:col-6">
+                    <label class="input-label">Country of Origin</label>
+                    <input 
+                        type="text" 
+                        pInputText 
+                        [(ngModel)]="productData.master.CountryOfOrigin"
+                        [disabled]="isView"
+                        placeholder="e.g., USA, China, Japan"
+                        class="w-full" />
+                </div>
+                
+                <div class="col-12 md:col-6">
+                    <label class="input-label">Supplier</label>
+                    <p-select 
+                        [(ngModel)]="productData.master.SupplierId" 
+                        [options]="suppliers" 
+                        optionLabel="Name" 
+                        optionValue="Id"
+                        [disabled]="isView"
+                        placeholder="Select Supplier" 
+                        class="w-full" />
+                </div>
+                
+                <div class="col-12 md:col-6">
+                    <label class="input-label">Quotation</label>
+                    <input 
+                        type="text" 
+                        pInputText 
+                        [(ngModel)]="productData.master.Quotation"
+                        [disabled]="isView"
+                        placeholder="Quotation reference"
+                        class="w-full" />
+                </div>
+                
+                <div class="col-12">
+                    <label class="input-label">Description</label>
+                    <textarea 
+                        pTextarea 
+                        [(ngModel)]="productData.master.Description"
+                        [disabled]="isView"
+                        rows="4"
+                        placeholder="Enter product description..."
+                        class="w-full"></textarea>
+                </div>
+            </div>
+        </p-card>
+
+        <!-- Specifications Section -->
+        <p-card styleClass="form-card specs-card">
+            <ng-template pTemplate="header">
+                <div class="section-header specs-header">
+                    <div class="header-left">
+                        <i class="pi pi-list"></i>
+                        <span>Product Specifications ({{ productData.specifications.length }})</span>
+                    </div>
+                    <p-button 
+                        *ngIf="!isView"
+                        label="Add Specification" 
+                        icon="pi pi-plus" 
+                        [outlined]="true"
+                        severity="success"
+                        (onClick)="addSpecification()" />
+                </div>
+            </ng-template>
+
+            <div *ngIf="productData.specifications.length === 0" class="empty-specs">
+                <i class="pi pi-inbox"></i>
+                <p>No specifications added yet</p>
+                <p-button 
+                    *ngIf="!isView"
+                    label="Add First Specification" 
+                    icon="pi pi-plus" 
+                    (onClick)="addSpecification()" />
+            </div>
+
+            <!-- Specifications Table -->
+            <div *ngIf="productData.specifications.length > 0">
+                <p-table 
+                    [value]="productData.specifications" 
+                    styleClass="specs-table"
+                    [paginator]="productData.specifications.length > 5"
+                    [rows]="5">
+                    <ng-template pTemplate="header">
+                        <tr>
+                            <th style="width: 50px">#</th>
+                            <th>Specification Name</th>
+                            <th>Size</th>
+                            <th>Price</th>
+                            <th>Other Terms</th>
+                            <th *ngIf="!isView" style="width: 100px">Actions</th>
+                        </tr>
+                    </ng-template>
+                    <ng-template pTemplate="body" let-spec let-rowIndex="rowIndex">
+                        <tr>
+                            <td>
+                                <p-tag [value]="(rowIndex + 1).toString()" severity="info"></p-tag>
+                            </td>
+                            <td>
+                                <input 
+                                    *ngIf="!isView"
+                                    type="text" 
+                                    pInputText 
+                                    [(ngModel)]="spec.SpecificationName"
+                                    placeholder="Specification name"
+                                    class="w-full" />
+                                <span *ngIf="isView"><strong>{{ spec.SpecificationName || 'N/A' }}</strong></span>
+                            </td>
+                            <td>
+                                <input 
+                                    *ngIf="!isView"
+                                    type="text" 
+                                    pInputText 
+                                    [(ngModel)]="spec.Size"
+                                    placeholder="Size"
+                                    class="w-full" />
+                                <span *ngIf="isView">{{ spec.Size || 'N/A' }}</span>
+                            </td>
+                            <td>
+                                <p-inputnumber 
+                                    *ngIf="!isView"
+                                    [(ngModel)]="spec.ProductSpecificationPrice" 
+                                    mode="currency" 
+                                    currency="USD"
+                                    class="w-full" />
+                                <p-tag 
+                                    *ngIf="isView"
+                                    [value]="(spec.ProductSpecificationPrice | currency) || '$0.00'" 
+                                    severity="warning"></p-tag>
+                            </td>
+                            <td>
+                                <input 
+                                    *ngIf="!isView"
+                                    type="text" 
+                                    pInputText 
+                                    [(ngModel)]="spec.OtherTerms"
+                                    placeholder="Other terms"
+                                    class="w-full" />
+                                <span *ngIf="isView">{{ spec.OtherTerms || '-' }}</span>
+                            </td>
+                            <td *ngIf="!isView">
+                                <p-button 
+                                    icon="pi pi-trash" 
+                                    [text]="true" 
+                                    [rounded]="true"
+                                    severity="danger"
+                                    (onClick)="deleteSpecification(rowIndex)"
+                                    pTooltip="Delete" />
+                            </td>
+                        </tr>
+                    </ng-template>
+                </p-table>
+            </div>
+        </p-card>
+
+        <!-- Action Buttons (Bottom) -->
+        <div class="bottom-actions" *ngIf="!isView">
+            <p-button 
+                label="Cancel" 
+                icon="pi pi-times" 
+                severity="secondary"
+                [outlined]="true"
+                (onClick)="goBack()" />
+            <p-button 
+                label="Save Product" 
+                icon="pi pi-save" 
+                severity="success"
+                [loading]="loading"
+                (onClick)="saveProduct()" />
+        </div>
+    </div>
+</div>

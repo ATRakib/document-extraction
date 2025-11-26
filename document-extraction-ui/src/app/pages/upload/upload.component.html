@@ -1,0 +1,289 @@
+<p-toast />
+<p-confirmDialog />
+
+<div class="upload-container">
+    <!-- Upload Section -->
+    <p-card styleClass="upload-card">
+        <ng-template pTemplate="header">
+            <div class="card-header">
+                <i class="pi pi-cloud-upload"></i>
+                <span>Document Upload & Extraction</span>
+            </div>
+        </ng-template>
+
+        <p-message 
+            *ngIf="isDuplicate" 
+            severity="warn" 
+            styleClass="mb-4 w-full">
+            <ng-template pTemplate>
+                <div class="flex align-items-center gap-2">
+                    <i class="pi pi-exclamation-triangle text-xl"></i>
+                    <span><strong>Duplicate File Detected:</strong> This file has already been processed. You can preview the data but cannot save it again.</span>
+                </div>
+            </ng-template>
+        </p-message>
+
+        <div class="grid">
+            <div class="col-12 md:col-6">
+                <label class="input-label">
+                    <i class="pi pi-file"></i>
+                    Select File (PDF, Word, Excel)
+                </label>
+                <div class="file-input-wrapper">
+                    <input 
+                        type="file" 
+                        (change)="onFileSelect($event)" 
+                        accept=".pdf,.doc,.docx,.xls,.xlsx" 
+                        class="file-input"
+                        id="fileInput">
+                    <label for="fileInput" class="file-input-label">
+                        <i class="pi pi-upload"></i>
+                        <span>{{ selectedFile ? selectedFile.name : 'Choose a file' }}</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="col-12 md:col-6">
+                <label class="input-label">
+                    <i class="pi pi-key"></i>
+                    Keywords (optional)
+                </label>
+                <input 
+                    type="text" 
+                    pInputText 
+                    [(ngModel)]="keywords" 
+                    placeholder="e.g., model, price, specifications" 
+                    class="w-full" />
+            </div>
+
+            <div class="col-12">
+                <p-button 
+                    label="Extract & Preview" 
+                    icon="pi pi-search" 
+                    (onClick)="extractDocument()" 
+                    [disabled]="!selectedFile"
+                    styleClass="extract-button" />
+            </div>
+        </div>
+    </p-card>
+
+    <!-- Extracted Products Section -->
+    <div *ngIf="extractedProducts.length > 0" class="extracted-section">
+        <p-card styleClass="results-card">
+            <ng-template pTemplate="header">
+                <div class="card-header">
+                    <i class="pi pi-box"></i>
+                    <span>Extracted Products ({{ extractedProducts.length }})</span>
+                </div>
+            </ng-template>
+
+            <div *ngFor="let product of extractedProducts; let i = index" class="product-container mb-4">
+                <!-- Product Master Table -->
+                <div class="product-master-section">
+                    <div class="section-title">
+                        <i class="pi pi-shopping-cart"></i>
+                        <span>Product Master</span>
+                        <p-button 
+                            icon="pi pi-pencil" 
+                            [text]="true" 
+                            [rounded]="true"
+                            severity="info"
+                            (onClick)="editProduct(i)"
+                            pTooltip="Edit Product" />
+                    </div>
+                    
+                    <p-table [value]="[product.master]" styleClass="master-table">
+                        <ng-template pTemplate="header">
+                            <tr>
+                                <th>Model Name</th>
+                                <th>Price</th>
+                                <th>Country</th>
+                                <th>Supplier</th>
+                                <th>Description</th>
+                            </tr>
+                        </ng-template>
+                        <ng-template pTemplate="body" let-master>
+                            <tr>
+                                <td>
+                                    <strong>{{ master.ModelName || 'N/A' }}</strong>
+                                </td>
+                                <td>
+                                    <p-tag [value]="(master.ProductPrice | currency) || '$0.00'" severity="success"></p-tag>
+                                </td>
+                                <td>{{ master.CountryOfOrigin || 'N/A' }}</td>
+                                <td>{{ getSupplierName(master.SupplierId) }}</td>
+                                <td class="description-cell">{{ master.Description || 'No description' }}</td>
+                            </tr>
+                        </ng-template>
+                    </p-table>
+                </div>
+
+                <!-- Product Specifications Table -->
+                <div class="product-specs-section">
+                    <div class="section-title">
+                        <i class="pi pi-list"></i>
+                        <span>Specifications ({{ product.specifications.length }})</span>
+                    </div>
+                    
+                    <p-table 
+                        [value]="product.specifications" 
+                        styleClass="specs-table"
+                        [paginator]="product.specifications.length > 5"
+                        [rows]="5">
+                        <ng-template pTemplate="header">
+                            <tr>
+                                <th style="width: 50px">#</th>
+                                <th>Specification Name</th>
+                                <th>Size</th>
+                                <th>Price</th>
+                                <th>Other Terms</th>
+                            </tr>
+                        </ng-template>
+                        <ng-template pTemplate="body" let-spec let-rowIndex="rowIndex">
+                            <tr>
+                                <td><p-tag [value]="(rowIndex + 1).toString()" severity="info"></p-tag></td>
+                                <td><strong>{{ spec.SpecificationName || 'N/A' }}</strong></td>
+                                <td>{{ spec.Size || 'N/A' }}</td>
+                                <td>
+                                    <p-tag [value]="(spec.ProductSpecificationPrice | currency) || '$0.00'" severity="warning"></p-tag>
+                                </td>
+                                <td>{{ spec.OtherTerms || '-' }}</td>
+                            </tr>
+                        </ng-template>
+                        <ng-template pTemplate="emptymessage">
+                            <tr>
+                                <td colspan="5" class="text-center py-4">No specifications found</td>
+                            </tr>
+                        </ng-template>
+                    </p-table>
+                </div>
+
+                <p-divider *ngIf="i < extractedProducts.length - 1"></p-divider>
+            </div>
+
+            <ng-template pTemplate="footer">
+                <div class="flex justify-content-end">
+                    <p-button 
+                        label="Save All Products" 
+                        icon="pi pi-save" 
+                        severity="success" 
+                        (onClick)="saveAll()" 
+                        [disabled]="isDuplicate"
+                        size="large" />
+                </div>
+            </ng-template>
+        </p-card>
+    </div>
+</div>
+
+<!-- Edit Dialog -->
+<p-dialog 
+    [(visible)]="editDialog" 
+    [style]="{width: '950px'}" 
+    header="Edit Product & Specifications" 
+    [modal]="true"
+    styleClass="edit-dialog">
+    
+    <div *ngIf="currentProduct" class="edit-content">
+        <!-- Product Master Section -->
+        <div class="edit-section master-edit">
+            <div class="edit-section-header">
+                <i class="pi pi-shopping-cart"></i>
+                <span>Product Master</span>
+            </div>
+            
+            <div class="grid">
+                <div class="col-12 md:col-6">
+                    <label class="input-label required">Model Name</label>
+                    <input type="text" pInputText [(ngModel)]="currentProduct.master.ModelName" required class="w-full" />
+                </div>
+                
+                <div class="col-12 md:col-6">
+                    <label class="input-label">Product Price</label>
+                    <p-inputnumber [(ngModel)]="currentProduct.master.ProductPrice" mode="currency" currency="USD" class="w-full" />
+                </div>
+                
+                <div class="col-12 md:col-6">
+                    <label class="input-label">Country of Origin</label>
+                    <input type="text" pInputText [(ngModel)]="currentProduct.master.CountryOfOrigin" class="w-full" />
+                </div>
+                
+                <div class="col-12 md:col-6">
+                    <label class="input-label">Supplier</label>
+                    <p-select 
+                        [(ngModel)]="currentProduct.master.SupplierId" 
+                        [options]="suppliers" 
+                        optionLabel="Name" 
+                        optionValue="Id" 
+                        placeholder="Select Supplier" 
+                        class="w-full" />
+                </div>
+                
+                <div class="col-12 md:col-6">
+                    <label class="input-label">Quotation</label>
+                    <input type="text" pInputText [(ngModel)]="currentProduct.master.Quotation" class="w-full" />
+                </div>
+                
+                <div class="col-12">
+                    <label class="input-label">Description</label>
+                    <textarea pTextarea [(ngModel)]="currentProduct.master.Description" rows="3" class="w-full"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Specifications Section -->
+        <div class="edit-section specs-edit">
+            <div class="edit-section-header">
+                <i class="pi pi-list"></i>
+                <span>Product Specifications</span>
+                <p-button 
+                    icon="pi pi-plus" 
+                    [text]="true" 
+                    [rounded]="true"
+                    severity="success"
+                    (onClick)="addSpecification()"
+                    pTooltip="Add Specification" />
+            </div>
+            
+            <div *ngFor="let spec of currentProduct.specifications; let i = index" class="spec-item">
+                <div class="spec-item-header">
+                    <span>Specification #{{ i + 1 }}</span>
+                    <p-button 
+                        icon="pi pi-trash" 
+                        [text]="true" 
+                        [rounded]="true"
+                        severity="danger"
+                        (onClick)="deleteSpecification(i)"
+                        pTooltip="Delete" />
+                </div>
+                
+                <div class="grid">
+                    <div class="col-12 md:col-6">
+                        <label class="input-label">Specification Name</label>
+                        <input type="text" pInputText [(ngModel)]="spec.SpecificationName" class="w-full" />
+                    </div>
+                    
+                    <div class="col-12 md:col-6">
+                        <label class="input-label">Size</label>
+                        <input type="text" pInputText [(ngModel)]="spec.Size" class="w-full" />
+                    </div>
+                    
+                    <div class="col-12 md:col-6">
+                        <label class="input-label">Price</label>
+                        <p-inputnumber [(ngModel)]="spec.ProductSpecificationPrice" mode="currency" currency="USD" class="w-full" />
+                    </div>
+                    
+                    <div class="col-12 md:col-6">
+                        <label class="input-label">Other Terms</label>
+                        <input type="text" pInputText [(ngModel)]="spec.OtherTerms" class="w-full" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+        <p-button label="Cancel" icon="pi pi-times" [outlined]="true" (click)="editDialog = false" />
+        <p-button label="Save Changes" icon="pi pi-check" (click)="saveEdit()" />
+    </ng-template>
+</p-dialog>
