@@ -27,7 +27,8 @@ pip install -r requirements.txt
 ```bash
 # Execute database_schema.sql in your SQL Server
 ```
-
+python -m venv venv
+venv\Scripts\activate
 5. Run the application:
 ```bash
 uvicorn app.main:app --reload
