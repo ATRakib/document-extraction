@@ -7,6 +7,7 @@ import { ProductComponent } from './app/pages/product/product.component';
 import { UploadComponent } from './app/pages/upload/upload.component';
 import { LoginComponent } from './app/pages/auth/login.component';
 import { AuthGuard } from './app/guards/auth.guard';
+import { ProductFormComponent } from '@/pages/product/addoredit/product-form.component';
 
 export const appRoutes: Routes = [
     { path: 'auth/login', component: LoginComponent },
@@ -18,7 +19,7 @@ export const appRoutes: Routes = [
             { path: '', component: Dashboard },
             { path: 'profile', component: ProfileComponent },
             { path: 'suppliers', component: SupplierComponent },
-            
+            { path: 'view/1', component: ProductFormComponent },
             { path: 'products', loadChildren: () => import('./app/pages/product/product.routes') },
             { path: 'upload', component: UploadComponent }
         ]

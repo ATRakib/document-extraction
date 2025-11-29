@@ -11,7 +11,9 @@ class ProductService:
 
     def create_supplier(self, supplier_data: dict) -> int:
         supplier = Supplier(**supplier_data)
-        return self.supplier_repo.create_supplier(supplier)
+        supplier_id  = self.supplier_repo.create_supplier(supplier)
+        full_supplier = self.supplier_repo.get_supplier_by_id(supplier_id)
+        return full_supplier
 
     def get_all_suppliers(self) -> List[Supplier]:
         return self.supplier_repo.get_all_suppliers()

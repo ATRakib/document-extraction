@@ -50,8 +50,8 @@
                 </div>
             </ng-template>
 
-            <div class="grid">
-                <div class="col-12 md:col-6">
+            <div class="grid grid-cols-12 gap-4" >
+                <div class="col-span-4">
                     <label class="input-label required">Model Name</label>
                     <input 
                         type="text" 
@@ -62,7 +62,7 @@
                         class="w-full" />
                 </div>
                 
-                <div class="col-12 md:col-6">
+                <div class="col-span-4">
                     <label class="input-label">Product Price</label>
                     <p-inputnumber 
                         [(ngModel)]="productData.master.ProductPrice" 
@@ -73,7 +73,7 @@
                         class="w-full" />
                 </div>
                 
-                <div class="col-12 md:col-6">
+                <div class="col-span-4">
                     <label class="input-label">Country of Origin</label>
                     <input 
                         type="text" 
@@ -84,7 +84,7 @@
                         class="w-full" />
                 </div>
                 
-                <div class="col-12 md:col-6">
+                <div class="col-span-6">
                     <label class="input-label">Supplier</label>
                     <p-select 
                         [(ngModel)]="productData.master.SupplierId" 
@@ -96,7 +96,7 @@
                         class="w-full" />
                 </div>
                 
-                <div class="col-12 md:col-6">
+                <div class="col-span-6">
                     <label class="input-label">Quotation</label>
                     <input 
                         type="text" 
@@ -107,7 +107,7 @@
                         class="w-full" />
                 </div>
                 
-                <div class="col-12">
+                <div class="col-span-12">
                     <label class="input-label">Description</label>
                     <textarea 
                         pTextarea 

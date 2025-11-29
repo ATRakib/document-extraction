@@ -16,6 +16,7 @@ import { TooltipModule } from 'primeng/tooltip';
 // Custom Services/Interfaces
 import { Product, ProductService, ProductInsert } from '../../services/product.service';
 import { Supplier, SupplierService } from '../../services/supplier.service';
+import { Router } from '@angular/router';
 
 @Component({
     selector: 'app-product',
@@ -69,7 +70,7 @@ import { Supplier, SupplierService } from '../../services/supplier.service';
 
                 <p-toolbar styleClass="mb-4 p-3 border-b border-gray-200">
                     <ng-template pTemplate="start">
-                        <p-button label="New Product" icon="pi pi-plus" severity="success" class="mr-2" (onClick)="openNew()" />
+                        <p-button label="New Product" icon="pi pi-plus" severity="success" class="mr-2" (onClick)="newProduct()" />
                     </ng-template>
                     <ng-template pTemplate="end">
                         <span class="p-input-icon-right mr-2 w-full sm:w-48">
@@ -152,7 +153,8 @@ export class ProductComponent implements OnInit {
         private productService: ProductService,
         private supplierService: SupplierService,
         private messageService: MessageService,
-        private confirmationService: ConfirmationService
+        private confirmationService: ConfirmationService,
+        private router: Router
     ) {}
 
     ngOnInit() {
@@ -188,57 +190,15 @@ export class ProductComponent implements OnInit {
         this.currentProductId = null;
         this.productDialog = true;
     }
-
+    newProduct() {
+        this.router.navigate(['/products/add']);
+    }
     viewProduct(product: Product) {
-        if (product.Id) {
-            this.productService.getById(product.Id).subscribe({
-                next: (data) => {
-                    this.productData = {
-                        master: { ...data.product },
-                        specifications: data.specifications.map(s => ({
-                            SpecificationName: s.SpecificationName,
-                            Size: s.Size,
-                            OtherTerms: s.OtherTerms,
-                            ProductSpecificationPrice: s.ProductSpecificationPrice
-                        }))
-                    };
-                    this.isView = true;
-                    this.isEdit = false;
-                    this.dialogHeader = `View Product: ${data.product.ModelName}`;
-                    this.productDialog = true;
-                },
-                error: () => {
-                    this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load product details' });
-                }
-            });
-        }
+        this.router.navigate(['/products/view', product.Id]);
     }
 
     editProduct(product: Product) {
-        if (product.Id) {
-            this.productService.getById(product.Id).subscribe({
-                next: (data) => {
-                    this.productData = {
-                        master: { ...data.product },
-                        specifications: data.specifications.map(s => ({
-                            SpecificationName: s.SpecificationName,
-                            Size: s.Size,
-                            OtherTerms: s.OtherTerms,
-                            ProductSpecificationPrice: s.ProductSpecificationPrice
-                        }))
-                    };
-                    this.isEdit = true;
-                    this.isView = false;
-                    this.submitted = false;
-                    this.dialogHeader = `Edit Product: ${data.product.ModelName}`;
-                    this.currentProductId = product.Id;
-                    this.productDialog = true;
-                },
-                error: () => {
-                    this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load product for editing' });
-                }
-            });
-        }
+        this.router.navigate(['/products/edit', product.Id]);
     }
 
     hideDialog() {

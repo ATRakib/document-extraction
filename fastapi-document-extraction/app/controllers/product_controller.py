@@ -17,8 +17,8 @@ def create_supplier(
     current_user = Depends(check_permission("Create"))
 ):
     product_service = ProductService(conn)
-    supplier_id = product_service.create_supplier(supplier_data.dict())
-    return {"message": "Supplier created successfully", "supplier_id": supplier_id}
+    supplier = product_service.create_supplier(supplier_data.dict())
+    return {"message": "Supplier created successfully", "supplier": supplier}
 
 @router.get("/suppliers", response_model=List[SupplierResponse])
 def get_all_suppliers(

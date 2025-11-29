@@ -43,7 +43,16 @@
     color: #64748b;
 }
 
-.input-label.required::after {
+/* Field Labels for Form */
+.field-label {
+    display: block;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.field-label.required::after {
     content: "*";
     color: #ef4444;
     margin-left: 0.25rem;
@@ -113,6 +122,7 @@
 .section-title {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 0.75rem;
     font-size: 1.1rem;
     font-weight: 600;
@@ -126,6 +136,12 @@
     font-size: 1.25rem;
 }
 
+.title-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
 .product-master-section .section-title i {
     color: #3b82f6;
 }
@@ -134,49 +150,7 @@
     color: #10b981;
 }
 
-/* Tables */
-::ng-deep .master-table,
-::ng-deep .specs-table {
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-::ng-deep .master-table .p-datatable-thead > tr > th {
-    background: #3b82f6;
-    color: white;
-    font-weight: 600;
-    padding: 1rem;
-    font-size: 0.95rem;
-}
-
-::ng-deep .specs-table .p-datatable-thead > tr > th {
-    background: #10b981;
-    color: white;
-    font-weight: 600;
-    padding: 1rem;
-    font-size: 0.95rem;
-}
-
-::ng-deep .master-table .p-datatable-tbody > tr > td,
-::ng-deep .specs-table .p-datatable-tbody > tr > td {
-    padding: 0.875rem 1rem;
-    font-size: 0.9rem;
-}
-
-::ng-deep .master-table .p-datatable-tbody > tr:hover,
-::ng-deep .specs-table .p-datatable-tbody > tr:hover {
-    background: #f1f5f9;
-}
-
-.description-cell {
-    max-width: 300px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* Product Sections Spacing */
+/* Product Sections */
 .product-master-section {
     background: white;
     padding: 1.25rem;
@@ -192,82 +166,124 @@
     border-left: 4px solid #10b981;
 }
 
-/* Edit Dialog */
-::ng-deep .edit-dialog .p-dialog-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 1.5rem;
-}
-
-::ng-deep .edit-dialog .p-dialog-header .p-dialog-title {
-    font-weight: 600;
-    font-size: 1.25rem;
-}
-
-::ng-deep .edit-dialog .p-dialog-content {
-    padding: 1.5rem;
-}
-
-.edit-content {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-
-/* Edit Sections */
-.edit-section {
+/* Tables */
+::ng-deep .master-table,
+::ng-deep .specs-table {
     border-radius: 8px;
-    padding: 1.25rem;
-    border: 2px solid #e2e8f0;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-top: 1rem;
 }
 
-.master-edit {
-    background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%);
+::ng-deep .master-table .p-datatable-thead > tr > th {
+    background: #3b82f6;
+    color: white;
+    font-weight: 600;
+    padding: 0.875rem 0.75rem;
+    font-size: 0.9rem;
+}
+
+::ng-deep .specs-table .p-datatable-thead > tr > th {
+    background: #10b981;
+    color: white;
+    font-weight: 600;
+    padding: 0.875rem 0.75rem;
+    font-size: 0.9rem;
+}
+
+::ng-deep .master-table .p-datatable-tbody > tr > td,
+::ng-deep .specs-table .p-datatable-tbody > tr > td {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+    vertical-align: middle;
+}
+
+::ng-deep .master-table .p-datatable-tbody > tr:hover,
+::ng-deep .specs-table .p-datatable-tbody > tr:hover {
+    background: #f1f5f9;
+}
+
+/* Table Inputs */
+.table-input {
+    padding: 0.5rem !important;
+    font-size: 0.875rem !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+.table-input:focus {
+    border-color: #3b82f6 !important;
+}
+
+::ng-deep .master-table .p-inputnumber-input,
+::ng-deep .specs-table .p-inputnumber-input {
+    padding: 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* Supplier Field in Table */
+.supplier-field-inline {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    width: 100%;
+}
+
+.supplier-actions {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+::ng-deep .supplier-autocomplete {
+    flex: 1;
+    min-width: 150px;
+}
+
+::ng-deep .supplier-autocomplete .p-autocomplete-input {
+    padding: 0.5rem;
+    font-size: 0.875rem;
+    border: 1px solid #e2e8f0;
+}
+
+::ng-deep .supplier-autocomplete .p-autocomplete-input:focus {
     border-color: #3b82f6;
 }
 
-.specs-edit {
-    background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-    border-color: #10b981;
+.supplier-warning {
+    display: block;
+    margin-top: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: #fff7ed;
+    border-left: 3px solid #f59e0b;
+    border-radius: 4px;
+    color: #c2410c;
+    font-size: 0.85rem;
 }
 
-.edit-section-header {
+.supplier-warning i {
+    font-size: 0.8rem;
+    margin-right: 0.25rem;
+}
+
+/* Empty Specs */
+.empty-specs {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 0.75rem;
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #1e293b;
-    margin-bottom: 1rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 2px solid rgba(0, 0, 0, 0.1);
+    padding: 2rem 1rem;
+    color: #94a3b8;
+    margin-top: 1rem;
 }
 
-.edit-section-header i {
-    font-size: 1.25rem;
+.empty-specs i {
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
 }
 
-/* Specification Items */
-.spec-item {
-    background: white;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    padding: 1rem;
-    margin-bottom: 1rem;
-}
-
-.spec-item-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.spec-item-header span {
-    font-weight: 600;
-    color: #374151;
+.empty-specs p {
+    margin: 0;
+    font-size: 1rem;
 }
 
 /* Tags */
@@ -276,32 +292,40 @@
     padding: 0.5rem 0.75rem;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-    .upload-container {
-        padding: 1rem;
-    }
+/* Divider */
+::ng-deep .p-divider {
+    margin: 1.5rem 0;
+}
 
-    .card-header {
-        font-size: 1.1rem;
-        padding: 1rem;
-    }
+::ng-deep .p-divider::before {
+    border-color: #cbd5e1;
+}
 
-    .section-title {
-        font-size: 1rem;
-    }
+/* Supplier Dialog */
+::ng-deep .supplier-dialog .p-dialog-header {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    padding: 1.25rem;
+}
 
-    .product-container {
-        padding: 1rem;
-    }
+::ng-deep .supplier-dialog .p-dialog-content {
+    padding: 1.5rem;
+}
 
-    .description-cell {
-        max-width: 150px;
-    }
+::ng-deep .supplier-dialog input[type="text"],
+::ng-deep .supplier-dialog input[type="email"],
+::ng-deep .supplier-dialog textarea {
+    padding: 0.625rem 0.75rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
 
-    ::ng-deep .edit-dialog {
-        width: 95% !important;
-    }
+::ng-deep .supplier-dialog input:focus,
+::ng-deep .supplier-dialog textarea:focus {
+    border-color: #10b981;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
 }
 
 /* Animation */
@@ -320,11 +344,91 @@
     animation: fadeIn 0.3s ease-in-out;
 }
 
-/* Divider */
-::ng-deep .p-divider {
-    margin: 2rem 0;
+/* Responsive */
+@media (max-width: 768px) {
+    .upload-container {
+        padding: 1rem;
+    }
+
+    .card-header {
+        font-size: 1.1rem;
+        padding: 1rem;
+    }
+
+    .section-title {
+        font-size: 1rem;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .product-container {
+        padding: 1rem;
+    }
+
+    .supplier-field-inline {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .supplier-actions {
+        align-self: flex-start;
+    }
+
+    ::ng-deep .master-table .p-datatable-thead > tr > th,
+    ::ng-deep .master-table .p-datatable-tbody > tr > td,
+    ::ng-deep .specs-table .p-datatable-thead > tr > th,
+    ::ng-deep .specs-table .p-datatable-tbody > tr > td {
+        padding: 0.5rem;
+        font-size: 0.85rem;
+    }
+
+    ::ng-deep .supplier-dialog {
+        width: 95% !important;
+    }
+    
+    /* Make tables horizontally scrollable on mobile */
+    ::ng-deep .master-table,
+    ::ng-deep .specs-table {
+        overflow-x: auto;
+    }
 }
 
-::ng-deep .p-divider::before {
-    border-color: #cbd5e1;
+/* Button Styles */
+::ng-deep .p-button {
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+::ng-deep .p-button.p-button-success {
+    background: #10b981;
+    border-color: #10b981;
+    color: white;
+}
+
+::ng-deep .p-button.p-button-success:hover {
+    background: #059669;
+    border-color: #059669;
+}
+
+/* Small text styles */
+small {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.8rem;
+}
+
+small i {
+    font-size: 0.75rem;
+}
+
+/* Validation */
+::ng-deep .p-inputnumber.ng-invalid.ng-touched input,
+::ng-deep input.ng-invalid.ng-touched,
+::ng-deep textarea.ng-invalid.ng-touched {
+    border-color: #ef4444 !important;
+}
+
+::ng-deep .p-autocomplete.ng-invalid.ng-touched .p-autocomplete-input {
+    border-color: #ef4444 !important;
 }
