@@ -23,6 +23,7 @@ import { Supplier, SupplierService } from '../../services/supplier.service';
 
 interface ExtractedProduct extends ProductInsert {
     extractedSupplierName?: string;
+    extractedSupplierData?: any;  // ✅ Store supplier data for each product
     isNewSupplier?: boolean;
 }
 
@@ -67,7 +68,10 @@ export class UploadComponent implements OnInit {
     newSupplierName = '';
     newSupplierEmail = '';
     newSupplierPhone = '';
-    newSupplierAddress = '';
+    newSupplierFax = '';
+    newSupplierCountry = '';
+    newSupplierAddress1 = '';
+    newSupplierAddress2 = '';
     currentProductIndex = -1;
 
     constructor(
@@ -78,7 +82,6 @@ export class UploadComponent implements OnInit {
     ) {}
 
     ngOnInit() {
-        debugger
         this.loadSuppliers();
     }
 
@@ -95,13 +98,15 @@ export class UploadComponent implements OnInit {
     }
 
     extractDocument() {
-        debugger
         if (!this.selectedFile) return;
 
         this.uploadService.extractPreview(this.selectedFile, this.keywords).subscribe({
             next: (data) => {
                 this.extractedProducts = data.product_data_list.map((product: any) => {
-                    const extractedSupplierName = product.master.SupplierName || this.selectedFile?.name.split('.')[0];
+                    const extractedSupplierName = product.master.Supplier?.Name || '';
+                    // ✅ Store supplier data IN the product itself
+                    const supplierData = product.master.Supplier || {};
+                    
                     const existingSupplier = this.suppliers.find(s => 
                         s.Name.toLowerCase().trim() === extractedSupplierName?.toLowerCase().trim()
                     );
@@ -109,6 +114,7 @@ export class UploadComponent implements OnInit {
                     return {
                         ...product,
                         extractedSupplierName: extractedSupplierName,
+                        extractedSupplierData: supplierData,  // ✅ Each product has its own supplier data
                         isNewSupplier: !existingSupplier,
                         master: {
                             ...product.master,
@@ -120,6 +126,9 @@ export class UploadComponent implements OnInit {
                 this.isDuplicate = data.is_duplicate;
                 this.fileHash = data.file_hash;
                 this.fileName = data.file_name;
+                
+                console.log('Extracted Products:', this.extractedProducts);
+                console.log('Raw Data:', data.product_data_list);
                 
                 this.messageService.add({ 
                     severity: 'success', 
@@ -138,7 +147,6 @@ export class UploadComponent implements OnInit {
     }
 
     searchSupplier(event: any, productIndex: number) {
-        debugger
         const query = event.query.toLowerCase().trim();
         if (!query) {
             // Show all suppliers when dropdown is opened or query is empty
@@ -152,7 +160,6 @@ export class UploadComponent implements OnInit {
     }
 
     onSupplierSelect(event: any, productIndex: number) {
-        debugger
         // When a supplier is selected from dropdown
         this.extractedProducts[productIndex].master.SupplierId = event.Id;
         this.extractedProducts[productIndex].extractedSupplierName = event.Name;
@@ -160,7 +167,6 @@ export class UploadComponent implements OnInit {
     }
 
     onSupplierChange(productIndex: number) {
-        debugger
         // When supplier name is manually typed/changed
         const product = this.extractedProducts[productIndex];
         const supplierName = product.extractedSupplierName?.trim();
@@ -185,12 +191,21 @@ export class UploadComponent implements OnInit {
         }
     }
 
-    openAddSupplierDialog(productIndex: number, supplierName: string) {
+    openAddSupplierDialog(productIndex: number, supplierName: any) {
         this.currentProductIndex = productIndex;
-        this.newSupplierName = supplierName || '';
-        this.newSupplierEmail = '';
-        this.newSupplierPhone = '';
-        this.newSupplierAddress = '';
+        
+        // ✅ Get supplier data from the SPECIFIC product
+        const supplierData = this.extractedProducts[productIndex].extractedSupplierData || {};
+        
+        // ✅ Set all fields from that product's supplier data
+        this.newSupplierName = supplierName || supplierData.Name || '';
+        this.newSupplierEmail = supplierData.Email || '';
+        this.newSupplierPhone = supplierData.Phone || '';
+        this.newSupplierAddress1 = supplierData.Address1 || '';
+        this.newSupplierAddress2 = supplierData.Address2 || '';
+        this.newSupplierCountry = supplierData.Country || '';
+        this.newSupplierFax = supplierData.Fax || '';
+        
         this.addSupplierDialog = true;
     }
 
@@ -208,12 +223,14 @@ export class UploadComponent implements OnInit {
             Name: this.newSupplierName.trim(),
             Email: this.newSupplierEmail.trim(),
             Phone: this.newSupplierPhone.trim(),
-            Address: this.newSupplierAddress.trim()
+            Address1: this.newSupplierAddress1.trim(),
+            Address2: this.newSupplierAddress2.trim(),
+            Country: this.newSupplierCountry.trim(),
+            Fax: this.newSupplierFax.trim()
         };
 
         this.supplierService.create(newSupplier).subscribe({
             next: (data) => {
-                debugger
                 // Add to suppliers list
                 this.suppliers.push(data.supplier);
                 
@@ -221,10 +238,10 @@ export class UploadComponent implements OnInit {
                 this.extractedProducts[this.currentProductIndex].master.SupplierId = data.supplier.Id;
                 this.extractedProducts[this.currentProductIndex].isNewSupplier = false;
                 this.extractedProducts[this.currentProductIndex].extractedSupplierName = data.supplier.Name;
-                debugger
+                
                 // Auto-update other products with same supplier name
                 const newSupplierNameLower = data.supplier.Name.toLowerCase().trim();
-                debugger
+                
                 this.extractedProducts.forEach((product, index) => {
                     if (index !== this.currentProductIndex && 
                         product.isNewSupplier && 
@@ -240,9 +257,6 @@ export class UploadComponent implements OnInit {
                     summary: 'Success', 
                     detail: 'Supplier added successfully and auto-assigned to matching products' 
                 });
-
-                
-                debugger
                 
                 this.addSupplierDialog = false;
             },

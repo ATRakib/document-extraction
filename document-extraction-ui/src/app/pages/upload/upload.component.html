@@ -346,16 +346,47 @@
                 placeholder="+1234567890"
                 class="w-full" />
         </div>
+
+        <div class="col-span-5">
+            <label class="field-label">Country</label>
+            <input 
+                type="text" 
+                pInputText 
+                [(ngModel)]="newSupplierCountry"
+                placeholder="country"
+                class="w-full" />
+        </div>
+
+        <div class="col-span-5">
+            <label class="field-label">Fax</label>
+            <input 
+                type="text" 
+                pInputText 
+                [(ngModel)]="newSupplierFax"
+                placeholder="fax"
+                class="w-full" />
+        </div>
         
         <div class="col-span-5">
-            <label class="field-label">Address</label>
+            <label class="field-label">Address Line One</label>
             <textarea 
                 pTextarea 
-                [(ngModel)]="newSupplierAddress"
+                [(ngModel)]="newSupplierAddress1"
                 rows="3"
                 placeholder="Enter supplier address"
                 class="w-full"></textarea>
         </div>
+
+        <div class="col-span-5">
+            <label class="field-label">Address Line two</label>
+            <textarea 
+                pTextarea 
+                [(ngModel)]="newSupplierAddress2"
+                rows="3"
+                placeholder="Enter supplier address"
+                class="w-full"></textarea>
+        </div>
+
     </div>
 
     <ng-template pTemplate="footer">
